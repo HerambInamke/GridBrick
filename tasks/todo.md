@@ -1,0 +1,6 @@
+- [x] 1. Backend data layer + analysis + tests
+- [x] 2. API routes (/api/health, /api/meta, /api/forecast, /api/accuracy)
+- [x] 3. Frontend: decision view
+- [x] 4. Frontend: accuracy view
+- [x] 5. Docker + Vercel config
+- [x] 6. README + commit
