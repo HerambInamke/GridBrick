@@ -16,7 +16,13 @@ export const longDay = (d) =>
   new Date(`${d}T12:00:00Z`).toLocaleDateString('en-GB', { timeZone: UK, weekday: 'long', day: 'numeric', month: 'long' })
 
 export const shortDay = (d) =>
-  new Date(`${d}T12:00:00Z`).toLocaleDateString('en-GB', { timeZone: UK, day: 'numeric', month: 'short' })
+  new Date(`${d}T12:00:00Z`).toLocaleDateString('en-GB', { timeZone: UK, weekday: 'short', day: 'numeric', month: 'short' })
+
+export const prevDay = (d) => {
+  const t = new Date(`${d}T12:00:00Z`)
+  t.setUTCDate(t.getUTCDate() - 1)
+  return t.toISOString().slice(0, 10)
+}
 
 export async function getJson(url) {
   const r = await fetch(url)

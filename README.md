@@ -1,6 +1,7 @@
 # Wind Forecast Monitor
 
-A web app for a UK utility's day-ahead purchasing desk. For any delivery day in January 2026 it shows
+A web app for a UK utility's day-ahead purchasing desk. For every purchase decision made in January 2026
+(delivery days **2 January to 1 February 2026**) it shows
 the **latest national wind forecast that was available when the purchase decision had to be made**
 (the day before), next to what actually happened, and it **quantifies how wrong that forecast tends
 to be** so the desk can size how much extra power to buy.
@@ -12,35 +13,41 @@ and forecasts from [WINDFOR](https://bmrs.elexon.co.uk/api-documentation/endpoin
 
 ## What the app shows
 
-**Decision view (top of page).** Pick a delivery day and the time you decide on the day before (default 09:00 UK).
+**Decision view (top of page).** Pick a delivery day and the time you decide on the day before (default 09:00 UK,
+just ahead of the GB day-ahead auction gate closures: [EPEX at 09:20](https://www.epexspot.com/en) and
+[Nord Pool N2EX at 09:50](https://support.nordpoolgroup.com/support/solutions/articles/8000088463-about-the-day-ahead-gb-auction)).
 The app selects the most recent WINDFOR run published **at or before** that time, then shows:
 - expected wind energy for the day (GWh), a "plan for at least" low case, and the actual outturn
-- the forecast, the actual, and a shaded 80% likely range built from January's measured error quantiles
+- the forecast, the actual, and a shaded 80% likely range built from the period's measured error quantiles
+- a note when the chosen forecast run does not cover the whole day (e.g. very early decision times)
 - that day's error figures (mean error, bias, largest shortfall and surplus)
 
-**Accuracy view (bottom of page).** Every January delivery day scored against the forecast you would have used at the chosen decision time:
+**Accuracy view (bottom of page).** All 31 delivery days, each scored against the forecast you would have used at the chosen decision time:
 - MAE, bias, P90 error (shortfall to plan for in 9 hours out of 10), and MAE after removing the bias
 - error by forecast lead time (0–48 h, all runs), by hour of day, error distribution, and error per day (click a bar to open that day)
 
 ### Method and definitions
 | Term | Definition |
 |---|---|
+| Scope | Decisions made 1–31 Jan 2026 (on D-1), so delivery days D = 2 Jan to 1 Feb 2026 |
 | Delivery day D | UK-local calendar day (`Europe/London`, so 23/25-hour clock-change days are handled) |
 | Decision time | D-1 at the chosen UK time. Forecast used = latest `publishTime <= decision time` |
 | Error | `forecast − actual` in MW. **Positive means less wind than forecast, so the desk must buy more** |
 | Matching | WINDFOR is hourly and FUELHH half-hourly, so errors are computed on the hourly points where both exist |
-| Likely range | `forecast − P90 error` to `forecast − P10 error`: where actual fell 80% of the time in January |
+| Likely range | `forecast − P90 error` to `forecast − P10 error`: where actual fell 80% of the time over the period |
+| Day energy (GWh) | Summed over hours with both a forecast and an actual, so expected, low case and actual compare like for like |
 | Lead time | `startTime − publishTime`, bucketed in 6 h steps from 0 to 48 h |
 
-### Key findings (January 2026, 09:00 decision time)
-- Typical error (MAE) is **2.1 GW**, about **18%** of mean wind output.
-- The forecast ran **high by about 1.9 GW on average**: wind outturn usually came in below forecast. This holds at
+### Key findings (decisions in January 2026, 09:00 decision time, 744 matched hours)
+- Typical error (MAE) is **2.0 GW**, about **18%** of mean wind output.
+- The forecast ran **high by about 1.75 GW on average**: wind outturn usually came in below forecast. This holds at
   every lead time, including 0–6 h, and doesn't change when actuals are shifted ±30/60 min, so it is not a
   timestamp-alignment artefact. A likely contributor is that FUELHH is metered outturn *after* curtailment
   (constraint actions), while the forecast is closer to unconstrained potential. The data alone can't confirm this.
-- In 90% of hours, the shortfall was below **4.3 GW** (P90 of error).
-- Error grows with lead time: MAE goes from about 1.8 GW at 0–6 h to about 2.4 GW at 42–48 h.
+- In 90% of hours, the shortfall was below **4.2 GW** (P90 of error).
+- Error grows with lead time: MAE goes from about 1.65 GW at 0–6 h to about 2.3 GW at 42–48 h.
 - Removing the average bias would cut MAE to about 1.4 GW (in-sample figure, for reference only).
+- The likely range and the low case use the same period they are evaluated on (in-sample). In production they would come from a trailing window.
 
 ## Repository layout
 ```
@@ -48,7 +55,7 @@ backend/
   app/elexon.py        Fetches FUELHH + WINDFOR from Elexon; 6 h in-memory cache; falls back to the bundled snapshot
   app/analysis.py      Pure analysis functions (forecast selection, metrics, horizon analysis), no I/O
   app/main.py          FastAPI routes: /api/health, /api/meta, /api/forecast, /api/accuracy; serves the SPA in Docker
-  data/snapshot.json   Bundled copy of the January 2026 data (used only if Elexon is unreachable)
+  data/snapshot.json   Bundled copy of the period's data (used only if Elexon is unreachable)
   tests/               pytest unit + API tests
   requirements-dev.txt Test dependencies
 frontend/
@@ -104,7 +111,7 @@ cd backend && python -m app.elexon
 | `GET /api/forecast?date=2026-01-15&cutoff=09:00` | Half-hourly actuals + hourly forecast for the day, the chosen run's publish time, day stats |
 | `GET /api/accuracy?cutoff=09:00` | Month metrics, by day, by hour, histogram, by lead time |
 
-Invalid dates (outside January 2026) or decision times return `422`.
+Dates outside 2026-01-02 to 2026-02-01, or malformed decision times, return `422`.
 
 ## Design decisions
 - **Stdlib-only analysis.** The data is about 20k rows, so pandas would add 100+ MB to the serverless bundle and slow cold starts for no gain.

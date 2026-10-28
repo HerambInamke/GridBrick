@@ -1,7 +1,8 @@
 # Plan: Wind Forecast Monitor (Elexon, Jan 2026)
 
 ## Domain decisions
-- Delivery day D (Europe/London calendar day, Jan 1-31 2026). Purchase decision on D-1 before day-ahead gate closure.
+- Purchase decisions made in Jan 2026 (on D-1) -> delivery days D = 2 Jan .. 1 Feb 2026 (Europe/London calendar days).
+- Default decision time 09:00 UK: just before GB day-ahead gate closures (EPEX 09:20, N2EX 09:50).
 - "Forecast available at decision time" = latest WINDFOR run with `publishTime <= D-1 cutoff` (default 09:00 UK, user-adjustable).
 - WINDFOR is hourly, FUELHH (WIND) is half-hourly -> errors are computed on hourly points where both exist.
 - Error = forecast - actual (positive = over-forecast = wind shortfall = must buy more).

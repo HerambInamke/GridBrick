@@ -9,7 +9,8 @@ from datetime import date, datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 UK = ZoneInfo("Europe/London")
-JAN_DAYS = [date(2026, 1, d) for d in range(1, 32)]
+# Purchase decisions are made on D-1 during January 2026, so delivery days run 2 Jan - 1 Feb.
+DELIVERY_DAYS = [date(2026, 1, 2) + timedelta(days=i) for i in range(31)]
 HORIZON_BUCKET_H = 6
 MAX_HORIZON_H = 48
 
@@ -99,9 +100,9 @@ def day_view(ds: Dataset, day: date, cutoff: time) -> dict:
 
 
 def accuracy(ds: Dataset, cutoff: time) -> dict:
-    """Month-level accuracy of the forecast the desk would actually have used (latest at D-1 cutoff)."""
+    """Accuracy over all delivery days of the forecast the desk would actually have used (latest at D-1 cutoff)."""
     rows = []  # (day, uk_hour, error, actual)
-    for day in JAN_DAYS:
+    for day in DELIVERY_DAYS:
         pub = ds.latest_run_at(decision_cutoff(day, cutoff))
         if pub is None:
             continue
@@ -112,7 +113,7 @@ def accuracy(ds: Dataset, cutoff: time) -> dict:
                 rows.append((day, t.astimezone(UK).hour, f - a, a))
 
     by_day = []
-    for day in JAN_DAYS:
+    for day in DELIVERY_DAYS:
         e = [r[2] for r in rows if r[0] == day]
         if e:
             by_day.append({"date": day.isoformat(), "mae": sum(map(abs, e)) / len(e), "bias": sum(e) / len(e)})
@@ -141,15 +142,15 @@ def accuracy(ds: Dataset, cutoff: time) -> dict:
 
 
 def by_horizon(ds: Dataset) -> list[dict]:
-    """MAE by forecast lead time (target - publish) across every Jan-2026 forecast point, all runs."""
-    jan_start, _ = delivery_window(JAN_DAYS[0])
-    _, jan_end = delivery_window(JAN_DAYS[-1])
+    """MAE by forecast lead time (target - publish) across every forecast point for the delivery period, all runs."""
+    period_start, _ = delivery_window(DELIVERY_DAYS[0])
+    _, period_end = delivery_window(DELIVERY_DAYS[-1])
     buckets: dict[int, list[float]] = {}
     for pub, run in ds.runs.items():
         for t, f in run.items():
             a = ds.actuals.get(t)
             h = (t - pub).total_seconds() / 3600
-            if a is None or not (jan_start <= t < jan_end) or not (0 <= h < MAX_HORIZON_H):
+            if a is None or not (period_start <= t < period_end) or not (0 <= h < MAX_HORIZON_H):
                 continue
             buckets.setdefault(int(h // HORIZON_BUCKET_H), []).append(f - a)
     return [

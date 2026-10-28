@@ -8,10 +8,11 @@ BASE = "https://data.elexon.co.uk/bmrs/api/v1/datasets"
 SNAPSHOT = Path(__file__).resolve().parent.parent / "data" / "snapshot.json"
 CACHE_TTL_S = 6 * 3600
 
-# Delivery days are Jan 2026. Forecasts are fetched from 3 days earlier so every
-# Jan target time has its full 0-48h forecast history for the horizon analysis.
-ACTUALS_URL = f"{BASE}/FUELHH/stream?settlementDateFrom=2026-01-01&settlementDateTo=2026-01-31&fuelType=WIND"
-FORECASTS_URL = f"{BASE}/WINDFOR/stream?publishDateTimeFrom=2025-12-29T00:00:00Z&publishDateTimeTo=2026-02-01T00:00:00Z"
+# Decisions made in Jan 2026 cover delivery days 2 Jan - 1 Feb. Forecasts are fetched from
+# 2 days before the first delivery day to the end of the last, so every target time in the
+# period has its full 0-48h forecast history for the horizon analysis.
+ACTUALS_URL = f"{BASE}/FUELHH/stream?settlementDateFrom=2026-01-02&settlementDateTo=2026-02-01&fuelType=WIND"
+FORECASTS_URL = f"{BASE}/WINDFOR/stream?publishDateTimeFrom=2025-12-31T00:00:00Z&publishDateTimeTo=2026-02-02T00:00:00Z"
 
 _cache: dict = {}
 

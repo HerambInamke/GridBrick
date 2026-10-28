@@ -65,6 +65,7 @@ figure { margin: 0; }
 figcaption { font: 600 1.15rem var(--num); margin-bottom: 4px; }
 .note { font-size: 0.85rem; margin: 4px 0 0; }
 
+.loading { color: var(--muted); margin: 24px 0 0; }
 .error { background: #FBE9EC; border-left: 4px solid var(--short); padding: 10px 14px; margin-top: 16px; }
 footer { margin-top: 48px; font-size: 0.85rem; color: var(--muted); }
 .recharts-legend-item-text { color: var(--ink) !important; font-size: 0.85rem; }

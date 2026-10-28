@@ -34,7 +34,7 @@ def health():
 def meta():
     _, raw = dataset()
     return {
-        "days": [d.isoformat() for d in analysis.JAN_DAYS],
+        "days": [d.isoformat() for d in analysis.DELIVERY_DAYS],
         "default_cutoff": DEFAULT_CUTOFF,
         "source": raw["source"],
         "fetched_at": raw["fetched_at"],
@@ -43,8 +43,8 @@ def meta():
 
 @app.get("/api/forecast")
 def forecast(date_: date = Query(..., alias="date"), cutoff: str = DEFAULT_CUTOFF):
-    if date_ not in analysis.JAN_DAYS:
-        raise HTTPException(422, "date must be in January 2026")
+    if date_ not in analysis.DELIVERY_DAYS:
+        raise HTTPException(422, "date must be a delivery day for a January 2026 decision (2026-01-02 to 2026-02-01)")
     ds, _ = dataset()
     return analysis.day_view(ds, date_, parse_cutoff(cutoff))
 

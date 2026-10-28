@@ -39,14 +39,27 @@ def test_day_view_grid_is_half_hourly_with_hourly_forecast():
 
 
 def test_no_run_available_is_handled():
-    v = day_view(make_ds(), date(2026, 1, 3), time(9, 0))
+    v = day_view(make_ds(), date(2026, 1, 14), time(9, 0))  # no run published by 13 Jan 09:00
     assert v["forecast_publish_time"] is None and v["stats"] is None
+
+
+def test_stale_run_that_does_not_cover_the_day():
+    v = day_view(make_ds(), date(2026, 1, 20), time(9, 0))  # latest run is from 14 Jan, covers only 15 Jan
+    assert v["forecast_publish_time"] == "2026-01-14T09:30:00Z"
+    assert all(p["forecast"] is None for p in v["points"]) and v["stats"] is None
 
 
 def test_delivery_window_uses_uk_local_time():
     s, e = delivery_window(date(2026, 3, 29))  # spring clock change: 23-hour day
     assert (e - s).total_seconds() == 23 * 3600
     assert decision_cutoff(date(2026, 7, 2), time(9)).isoformat() == "2026-07-01T08:00:00+00:00"  # BST
+
+
+def test_delivery_days_match_january_decisions():
+    days = analysis.DELIVERY_DAYS
+    assert days[0] == date(2026, 1, 2) and days[-1] == date(2026, 2, 1) and len(days) == 31
+    assert decision_cutoff(days[0], time(9)).date() == date(2026, 1, 1)
+    assert decision_cutoff(days[-1], time(9)).date() == date(2026, 1, 31)
 
 
 def test_summarize():
@@ -81,6 +94,7 @@ def test_api(client):
     assert len(client.get("/api/meta").json()["days"]) == 31
     r = client.get("/api/forecast", params={"date": "2026-01-15", "cutoff": "09:00"})
     assert r.status_code == 200 and r.json()["stats"]["bias"] == 200
-    assert client.get("/api/forecast", params={"date": "2026-02-01"}).status_code == 422
+    assert client.get("/api/forecast", params={"date": "2026-01-01"}).status_code == 422  # decided 31 Dec: out of scope
+    assert client.get("/api/forecast", params={"date": "2026-02-01"}).status_code == 200  # decided 31 Jan: in scope
     assert client.get("/api/forecast", params={"date": "2026-01-15", "cutoff": "bad"}).status_code == 422
     assert client.get("/api/accuracy").json()["overall"]["n"] == 24
