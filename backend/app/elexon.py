@@ -1,5 +1,6 @@
 """Fetch wind actuals (FUELHH) and forecasts (WINDFOR) from Elexon BMRS, with a bundled snapshot fallback."""
 import json
+import threading
 import time
 import urllib.request
 from pathlib import Path
@@ -15,11 +16,13 @@ ACTUALS_URL = f"{BASE}/FUELHH/stream?settlementDateFrom=2026-01-02&settlementDat
 FORECASTS_URL = f"{BASE}/WINDFOR/stream?publishDateTimeFrom=2025-12-31T00:00:00Z&publishDateTimeTo=2026-02-02T00:00:00Z"
 
 _cache: dict = {}
+_lock = threading.Lock()
 
 
 def _get(url: str) -> list:
     req = urllib.request.Request(url, headers={"Accept": "application/json"})
-    with urllib.request.urlopen(req, timeout=30) as r:
+    # Short enough that both calls fail over to the snapshot well inside the serverless time limit.
+    with urllib.request.urlopen(req, timeout=10) as r:
         return json.load(r)
 
 
@@ -33,17 +36,18 @@ def fetch_live() -> dict:
 
 def load() -> dict:
     """Return {"actuals", "forecasts", "source", "fetched_at"}; live data cached, snapshot if Elexon is unreachable."""
-    if _cache and time.time() - _cache["ts"] < CACHE_TTL_S:
-        return _cache["data"]
-    try:
-        data = {**fetch_live(), "source": "live"}
-    except Exception:
-        if _cache:  # keep serving the last good live data rather than downgrading
+    with _lock:  # the page fires 3 requests at once; fetch Elexon once, not three times
+        if _cache and time.time() - _cache["ts"] < CACHE_TTL_S:
             return _cache["data"]
-        data = {**json.loads(SNAPSHOT.read_text()), "source": "snapshot"}
-    data["fetched_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-    _cache.update(ts=time.time(), data=data)
-    return data
+        try:
+            data = {**fetch_live(), "source": "live"}
+        except Exception:
+            if _cache:  # keep serving the last good live data rather than downgrading
+                return _cache["data"]
+            data = {**json.loads(SNAPSHOT.read_text()), "source": "snapshot"}
+        data["fetched_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        _cache.update(ts=time.time(), data=data)
+        return data
 
 
 if __name__ == "__main__":

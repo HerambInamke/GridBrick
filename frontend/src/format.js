@@ -25,7 +25,8 @@ export const prevDay = (d) => {
 }
 
 export async function getJson(url) {
-  const r = await fetch(url)
+  // Empty by default (same-origin /api); set VITE_API_URL only if the API is hosted on another domain.
+  const r = await fetch(`${import.meta.env.VITE_API_URL ?? ''}${url}`)
   if (!r.ok) throw new Error(`${url} failed: ${r.status} ${(await r.text()).slice(0, 200)}`)
   return r.json()
 }

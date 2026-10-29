@@ -124,7 +124,10 @@ Dates outside 2026-01-02 to 2026-02-01, or malformed decision times, return `422
 npx vercel login
 npx vercel --prod
 ```
-`vercel.json` builds the frontend and deploys `api/index.py` as a Python function. No environment variables are needed.
+`vercel.json` builds the frontend and deploys `api/index.py` as a Python function. No environment variables are needed:
+the SPA calls `/api` on the same origin, so there is no CORS setup. API responses carry CDN cache headers (the data is historical),
+and Elexon calls time out after 10 s so the snapshot fallback always lands inside the function's time limit.
+If you ever host the SPA separately, build it with `VITE_API_URL=https://your-api-host`; the API allows cross-origin GETs.
 
 ## Use of AI tools
 This project was built with the help of an AI coding assistant (Claude Code), used for scaffolding, writing code and

@@ -1,12 +1,24 @@
 from datetime import date, time
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from . import analysis, elexon
 
 app = FastAPI(title="Wind Forecast Monitor")
+# Same-origin in Docker and on Vercel; CORS only matters if the SPA is hosted elsewhere. Public read-only data.
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET"])
+
+
+@app.middleware("http")
+async def cache_api(request: Request, call_next):
+    # January 2026 is historical, so successful API responses can sit on the CDN for an hour.
+    response = await call_next(request)
+    if request.url.path.startswith("/api/") and response.status_code == 200:
+        response.headers["Cache-Control"] = "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400"
+    return response
 DEFAULT_CUTOFF = "09:00"
 _ds: dict = {}
 

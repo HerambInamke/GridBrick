@@ -98,3 +98,17 @@ def test_api(client):
     assert client.get("/api/forecast", params={"date": "2026-02-01"}).status_code == 200  # decided 31 Jan: in scope
     assert client.get("/api/forecast", params={"date": "2026-01-15", "cutoff": "bad"}).status_code == 422
     assert client.get("/api/accuracy").json()["overall"]["n"] == 24
+
+
+def test_api_headers(client):
+    r = client.get("/api/meta", headers={"Origin": "https://elsewhere.example"})
+    assert r.headers["access-control-allow-origin"] == "*"
+    assert "s-maxage" in r.headers["cache-control"]
+    assert "cache-control" not in client.get("/api/forecast", params={"date": "2026-01-01"}).headers  # errors are not cached
+
+
+def test_snapshot_fallback(monkeypatch):
+    monkeypatch.setattr(elexon, "_cache", {})
+    monkeypatch.setattr(elexon, "fetch_live", lambda: (_ for _ in ()).throw(OSError("down")))
+    data = elexon.load()
+    assert data["source"] == "snapshot" and data["actuals"] and data["forecasts"]
